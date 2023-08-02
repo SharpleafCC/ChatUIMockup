@@ -191,6 +191,7 @@ pre {
     
 }
 #chat_header {
+    
     position: relative;
     background: #191b31;
     height: 100%;
@@ -209,6 +210,7 @@ pre {
     align-items: center;
     grid-template-columns: auto auto auto;
     /*grid-template-rows: auto auto;*/
+    display: none;
 }
 
 #chat_header_back_button {
@@ -320,6 +322,7 @@ pre {
     background-repeat: no-repeat;
     
     /* background-size: 20px; */
+    visibility: hidden;
 }
 #options{
     
@@ -799,6 +802,7 @@ input[type=submit], input[type=button] {
 }
 /*Left background menu*/
 #bg_menu {
+    display: none;
     margin-top: 5px;
     margin-left: 2px;
     cursor:pointer;
@@ -3032,6 +3036,7 @@ li.folder:not(.opened) > .children > li.folder:not(.opened) > div {
 
 
 .nav-toggle {
+    display: none;
     border-radius: 5px;
 
     position: absolute;
@@ -3222,6 +3227,7 @@ li.folder:not(.opened) > .children > li.folder:not(.opened) > div {
     font-weight: 700;
     font-size: 11pt;
     opacity: 0.72;
+    display: none;
 }
 #chat_story_button_story_text {
     opacity: 0.5;

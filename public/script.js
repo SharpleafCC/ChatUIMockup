@@ -10,7 +10,6 @@ import {CharacterView} from "./class/CharacterView.mjs";
 import {RoomModel} from "./class/RoomModel.mjs";
 import {StoryModule} from "./class/Story.js";
 import {SystemPromptModule} from "./class/SystemPrompt.js";
-import {TavernDate} from "./class/TavernDate.js";
 import {Tavern} from "./class/Tavern.js";
 var token;
 var data_delete_chat = {};
@@ -36,7 +35,7 @@ export var style_anchor = true;
 export var character_anchor = true;
 export const gap_holder = 120;
 export var online_status = 'no_connection';
-var chat_name;
+
 const VERSION = '1.5.0';
 /*
 var chloeMes = {
@@ -60,7 +59,8 @@ var chloeMes = {
             '<div id="characloud_img"><img src="img/tavern_summer.png" id="chloe_star_dust_city"></div>\n<a id="verson" href="https://github.com/TavernAI/TavernAI" target="_blank">@@@TavernAI v'+VERSION+'@@@</a><a href="https://boosty.to/tavernai" target="_blank"><div id="characloud_url"><img src="img/heart.png" style="width:18px; heigth:18px; margin-right:2px;"><div id="characloud_title">Support</div></div></a><br><br><br><br>',
         chid: -2
     };
-export var chat = [chloeMes];
+export var chat = [];
+
 
 
     //KoboldAI settings
@@ -202,6 +202,12 @@ export var Characters = new CharacterModel({
     containerEditorAdvanced: document.getElementById("shadow_charedit_advanced_popup"),
 });
 $(document).ready(function(){
+    setTimeout(function(){
+    Characters.selectedID = 0;
+    Tavern.mode = 'chat';
+    getChat();
+
+}, 1000);
     /*
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
@@ -264,11 +270,6 @@ $(document).ready(function(){
             });
     }
     SystemPrompt.on(SystemPromptModule.SAVE_SETTINGS, function (event) {
-        if(getIsRoom()){
-            settings.system_prompt_preset_room = SystemPrompt.selected_preset_name;
-        }else{
-            settings.system_prompt_preset_chat = SystemPrompt.selected_preset_name;
-        }
         saveSettings();
     });
     Characters.on(CharacterModel.EVENT_WIPE_CHAT, function() {
@@ -277,6 +278,8 @@ $(document).ready(function(){
         printMessages();
     }.bind(this));
     Characters.on(CharacterView.EVENT_CHARACTER_SELECT, function(event){
+        console.log(Characters);
+        console.log(event);
         let was_room = is_room; // Needed so that the chat interface is updated when switching from room to character
         setRoomMode(false);
         $('#chat_story_button').css('display', 'block');
@@ -1656,7 +1659,7 @@ $(document).ready(function(){
             }
 
 
-            if(main_api === 'openai' || main_api === 'proxy' && isChatModel() && SystemPrompt.system_depth <= SystemPrompt.system_depth_max){
+            if(main_api === 'openai' || main_api === 'proxy' && isChatModel()){
                 let sp_string = "";
                 sp_string = SystemPrompt.system_prompt.replace(/{{user}}/gi, name1) //System prompt
                                 .replace(/{{char}}/gi, name2)
@@ -1703,7 +1706,7 @@ $(document).ready(function(){
                     if(model_novel === 'krake-v2'){
                         this_max_context-=160;
                     }
-                    if(model_novel === 'clio-v1' || model_novel === 'kayra-v1'){
+                    if(model_novel === 'clio-v1'){
                         this_max_context = 8192;
                         this_max_context-=160;//fix for fat tokens 
                     }
@@ -1741,7 +1744,6 @@ $(document).ready(function(){
                                     .replace(/<USER>/gi, name1)
                                     .replace(/<BOT>/gi, name2);
                         }
-                        /*
                         if (SystemPrompt.jailbreak_prompt.length > 0) {
                             //arrMes.splice(-1, 0, jailbreak_prompt);
                             
@@ -1750,7 +1752,6 @@ $(document).ready(function(){
                                     .replace(/<USER>/gi, name1)
                                     .replace(/<BOT>/gi, name2));
                         }
-                        */
 
                     }
 
@@ -1839,68 +1840,16 @@ $(document).ready(function(){
                             count_exm_add--;
                             checkPromtSize();
                         }else if(mesSend.length > 0){
-                            removeMessage();
+                            mesSend.shift();
                             checkPromtSize();
                         }else{
                             //end
                         }
                     }
                 }
-                function removeMessage(){
-                    if (this_system_depth === undefined && this_jailbreak_depth === undefined) {
-                        mesSend.shift();
-                    } else {
-                        if(this_system_depth === 0 || this_jailbreak_depth === 0){
-                            if(this_system_depth === 1 || this_jailbreak_depth === 1){
-                                mesSend.splice(2, 1);
-                            }else{
-                                mesSend.splice(1, 1);
-                                if(this_system_depth === 0 && this_jailbreak_depth !== undefined) this_jailbreak_depth--;
-                                if(this_jailbreak_depth === 0 && this_system_depth !== undefined) this_system_depth--;
-                            }
-                        }else{
-                            mesSend.shift();
-                        }
-                    }
 
-                    
-                }
-                
-                
-                //Add System Prompt and Jailbreak with depth
-                
-                let this_system_depth;
-                let this_jailbreak_depth;
-                
-                if ((main_api === 'openai' || main_api === 'proxy') && isChatModel()) {
-                    this_system_depth = mesSend.length - SystemPrompt.system_depth; // for reverse array of messages
-                    if (this_system_depth < 0 || SystemPrompt.system_depth > SystemPrompt.system_depth_max)
-                        this_system_depth = 0;
-                    console.log(SystemPrompt.jailbreak_depth);
-                    this_jailbreak_depth = mesSend.length - SystemPrompt.jailbreak_depth;
-                    if (SystemPrompt.jailbreak_depth > mesSend.length) 
-                        this_jailbreak_depth = 0;
-                    if (SystemPrompt.jailbreak_depth === 0)
-                        this_jailbreak_depth = mesSend.length; //
-                    
-                    if (SystemPrompt.system_prompt.length > 0 && SystemPrompt.system_depth <= SystemPrompt.system_depth_max) {
-                        mesSend.splice(this_system_depth, 0, SystemPrompt.system_prompt.replace(/{{user}}/gi, name1)
-                                    .replace(/{{char}}/gi, name2)
-                                    .replace(/<USER>/gi, name1)
-                                    .replace(/<BOT>/gi, name2));
-                    }
 
-                    if (SystemPrompt.jailbreak_prompt.length > 0) {
-                        mesSend.splice(this_jailbreak_depth, 0, SystemPrompt.jailbreak_prompt.replace(/{{user}}/gi, name1)
-                                    .replace(/{{char}}/gi, name2)
-                                    .replace(/<USER>/gi, name1)
-                                    .replace(/<BOT>/gi, name2));
-                        if (this_jailbreak_depth <= this_system_depth)
-                            this_system_depth++;
-                    }
-                }
-                //**
-                
+
                 if(generatedPromtCache.length > 0){
                     checkPromtSize();
                 }else{
@@ -1920,19 +1869,16 @@ $(document).ready(function(){
                     finalPromt = {};
                     finalPromt = [];
 
+
                     finalPromt[0] = {"role": "system", "content": storyString+mesExmString};
                     mesSend.forEach(function(item,i){
-                        if (SystemPrompt.system_prompt.length > 0 && this_system_depth === i  && SystemPrompt.system_depth <= SystemPrompt.system_depth_max) {
+                        if (SystemPrompt.jailbreak_prompt.length > 0 && i === mesSend.length-1) {
                             finalPromt[i + 1] = {"role": "system", "content": item};
                         } else {
-                            if (SystemPrompt.jailbreak_prompt.length > 0 && this_jailbreak_depth === i) {
-                                finalPromt[i + 1] = {"role": "system", "content": item};
+                            if (item.indexOf(name1 + ':') === 0) {
+                                finalPromt[i + 1] = {"role": "user", "content": item};
                             } else {
-                                if (item.indexOf(name1 + ':') === 0) {
-                                    finalPromt[i + 1] = {"role": "user", "content": item};
-                                } else {
-                                    finalPromt[i + 1] = {"role": "assistant", "content": item};
-                                }
+                                finalPromt[i + 1] = {"role": "assistant", "content": item};
                             }
                         }
 
@@ -2531,9 +2477,7 @@ $(document).ready(function(){
             }
         });
         var save_chat = [{user_name:default_user_name, character_name:name2,create_date: chat_create_date, notes: winNotes.text, notes_type: winNotes.strategy, mode: Tavern.mode}, ...chat];
-        if(chat_name !== undefined){
-            save_chat[0].chat_name = chat_name;
-        }
+
 
         jQuery.ajax({    
             type: 'POST', 
@@ -2585,7 +2529,6 @@ $(document).ready(function(){
                     Tavern.mode = chat[0].mode || 'chat';
                     Story.showHide();
                     chat_create_date = chat[0]['create_date'];
-                    chat_name = chat[0]['chat_name'];
                     winNotes.text = chat[0].notes || "";
                     winNotes.strategy = chat[0].notes_type || "discr";
                     if(!winNotes.text || !winNotes.text.length) {
@@ -3285,11 +3228,8 @@ $(document).ready(function(){
             return;
         }
         if(popup_type == 'new_chat' && Characters.selectedID != undefined && menu_type != "create"){//Fix it; New chat doesn't create while open create character menu
-            winNotes.text = '';
-            winNotes.strategy = 'discr';
             Tavern.mode = 'chat';
             Story.showHide();
-            chat_name = undefined;
             clearChat();
             chat.length = 0;
             Characters.id[Characters.selectedID].chat = Date.now();
@@ -5524,20 +5464,17 @@ $(document).ready(function(){
                 data = dataArr.sort((a, b) => a['file_name'].localeCompare(b['file_name']));
                 data = data.reverse();
                 for (const key in data) {
-                    let strlen = 340;
+                    let strlen = 40;
                     let mes = data[key]['mes'];
                     if(mes.length > strlen){
                         mes = '...'+mes.substring(mes.length - strlen);
                     }
-
-                    mes+=` <span style="opacity:0.3">(${TavernDate(data[key]['mes_send_date'])})</span>`;
-                    let delete_chat_div = `<div class="chat_delete" style="width: 80px;"><a href="#">Delete</a></div>`;
+                    let delete_chat_div = `<div class="chat_delete"><a href="#">Delete</a></div>`;
                     if(Number(Characters.id[Characters.selectedID].chat) === Number(data[key]['file_name'].split(".")[0])){
                         delete_chat_div = '';
                     }
-                    let this_chat_name = getChatNameHtml(data[key]['file_name'], data[key]['chat_name']);
-                    
-                    $('#select_chat_div').append(`<div class="select_chat_block" file_name="`+data[key]['file_name']+`"><div class=avatar><img src="characters/`+Characters.id[Characters.selectedID].filename+`"></div><div class="select_chat_block_filename"><div class="select_chat_block_filename_text">`+this_chat_name+`</div> <button class="rename" title="Change name"></button></div><div class="select_chat_block_mes">`+vl(mes)+`</div><div class="chat_export"><a href="#">Export</a></div><div>`+delete_chat_div+`</div></div><hr>`);
+
+                    $('#select_chat_div').append('<div class="select_chat_block" file_name="'+data[key]['file_name']+'"><div class=avatar><img src="characters/'+Characters.id[Characters.selectedID].filename+'"></div><div class="select_chat_block_filename">'+data[key]['file_name']+'</div><div class="select_chat_block_mes">'+vl(mes)+'</div><div class="chat_export"><a href="#">Export</a></div>'+delete_chat_div+'</div>');
                     if(Characters.id[Characters.selectedID]['chat'] == data[key]['file_name'].replace('.jsonl', '')){
                         //children().last()
                         $('#select_chat_div').children(':nth-last-child(1)').attr('highlight', true);
@@ -5563,6 +5500,7 @@ $(document).ready(function(){
     $('#select_chat_popup').on('click', '.chat_export', function(e){
         e.stopPropagation();
         let chat_file = $(this).parent().attr('file_name');
+        console.log();
         $.get(`../chats/${Characters.id[Characters.selectedID].filename.replace(`.${characterFormat}`, '')}/${chat_file}`, function (data) {
             let blob = new Blob([data], {type: "application/json"});
             let url = URL.createObjectURL(blob);
@@ -5572,75 +5510,10 @@ $(document).ready(function(){
             $a.remove();
         });
     });
-    $('#select_chat_popup').on('click', '.rename', function(e){
-        e.stopPropagation();
-        
-        let chat_file = $(this).parent().parent().attr('file_name');
-        let old_name_prompt;
-        if(chat_file != $(this).parent().children('.select_chat_block_filename_text').text()){
-            old_name_prompt = $.trim($(this).parent().children('.select_chat_block_filename_text').html().split("<span")[0].replace('<u>', '').replace('</u>', ''));
-        }
-        let this_chat_name = prompt("Please enter the chat name:", old_name_prompt);
-        if(this_chat_name === null) {
-            // User clicked cancel 
-        } else if (this_chat_name === '') {
-            // User entered empty text
-            chat_name = undefined;
-            setChatName(chat_file);
-        } else {
-            // User entered non-empty text
-            chat_name = this_chat_name;
-            setChatName(chat_file);
-        }
-
-    });
-    function setChatName(chat_file){
-
-        jQuery.ajax({    
-            type: 'POST', 
-            url: '/changechatname', 
-            data: JSON.stringify({character_filename: Characters.id[Characters.selectedID].filename, chat_filename: chat_file.split(".")[0], chat_name: chat_name}),
-            beforeSend: function(){
-                //$('#create_button').attr('value','Creating...'); 
-            },
-            cache: false,
-            timeout: requestTimeout,
-            dataType: "json",
-            contentType: "application/json",
-            success: function(data){
-                let $chatBlock = $(`.select_chat_block[file_name="${chat_file}"]`);
-                if ($chatBlock.length) {
-                    $chatBlock.find('.select_chat_block_filename_text').html(getChatNameHtml(chat_file, chat_name));
-                }
-            },
-            error: function (jqXHR, exception) {
-
-                console.log(exception);
-                console.log(jqXHR);
-                callPopup(exception, 'alert_error');
-            }
-        });
-    }
-    function getChatNameHtml(chat_file, chat_name){
-        let this_chat_name;
-        if (chat_name != undefined) {
-            this_chat_name = chat_name;
-        }else{
-            this_chat_name = chat_file;
-        }
-        if (chat_file.split(".")[0] == Characters.id[Characters.selectedID].chat) {
-            this_chat_name = `<u>${this_chat_name}</u>`;
-        }
-        if (chat_name != undefined) {
-            this_chat_name = `${this_chat_name} <span style="font-size:0.8em;opacity:0.3">(${chat_file})</span>`;
-        }
-        
-        return vl(this_chat_name);
-    }
     $('#select_chat_popup').on('click', '.chat_delete', function(e){
         e.stopPropagation();
-        let $patent = $(this).parent();
-        let chat_file = $(this).parent().parent().attr('file_name');
+        let $patent = $(this).parent()
+        let chat_file = $(this).parent().attr('file_name');
         data_delete_chat = {
             chat_file:chat_file,
             character_filename: Characters.id[Characters.selectedID].filename.replace(`.${characterFormat}`, '')
@@ -7352,15 +7225,21 @@ $(document).ready(function(){
         $('#avatar-info-author').text(`Author: ${author}`);
         $('#avatar-info-filesize').text(`File Size: ${parseFloat(image_size).toFixed(1)}kb`);
         
-        let this_date = Number(character_data.create_date_online);
+        let date = new Date(Number(character_data.create_date_online));
         if(character_data.create_date_online === undefined){
-            this_date = Number(Date.now());
+            date = new Date(Number(Date.now()));
         }
         
 
-
+        const options = {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric'
+        };
         //console.log(`${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`);
-        $('#avatar-info-creation-date').text(`Creation Date: ${TavernDate(this_date)}`);
+        $('#avatar-info-creation-date').text(`Creation Date: ${date.toLocaleString(navigator.language, options).replace(',','')}`);
     }
     function printCharacterPageLocalButtons(){
         $('.characloud_character_page_top_info').text('');
